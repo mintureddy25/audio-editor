@@ -4,7 +4,7 @@ import './index.css';
 import App from './App';
 
 import reportWebVitals from './reportWebVitals';
-import { FileContextProvider } from './components/fileContext';
+import { FileContextProvider } from './utils/fileContext';
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 
