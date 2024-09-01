@@ -3,8 +3,6 @@ import TimelinePlugin from "wavesurfer.js/dist/plugin/wavesurfer.timeline.min.js
 import RegionsPlugin from "wavesurfer.js/dist/plugin/wavesurfer.regions.min.js";
 import { PlusIcon } from "@heroicons/react/20/solid";
 import wavesurfer from "wavesurfer.js";
-
-import ToggleButton from "../ToggleButton";
 import { FileContext } from "../../utils/fileContext";
 import { useNavigate } from "react-router-dom/dist";
 
@@ -189,121 +187,173 @@ const AudioEditor = (url) => {
     }
   };
 
-  const handleRecord =()=>{
-	navigate('/');
-
+  const handleRecord = () => {
+    navigate("/");
   };
 
   return (
     <>
-      {!fileURL && (
-        <div className="bg-white px-6 py-24 sm:py-32 lg:px-8">
-          <div className="mx-auto max-w-2xl text-center">
-            <div className="text-center">
-              <svg
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                aria-hidden="true"
-                className="mx-auto h-12 w-12 text-gray-400"
-              >
-                <path
-                  d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"
-                  strokeWidth={2}
-                  vectorEffect="non-scaling-stroke"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-              <h3 className="mt-2 text-sm font-semibold text-gray-900">
-                No Recorded Audio Found
-              </h3>
-              <p className="mt-1 text-sm text-gray-500">
-                Record the audio to edit and analyze.
-              </p>
-              <div className="mt-6">
-                <button
-                  type="button"
-                  className="inline-flex items-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
-                  onClick={handleRecord}
-                >
-                  <PlusIcon
-                    aria-hidden="true"
-                    className="-ml-0.5 mr-1.5 h-5 w-5"
-                  />
-                  Record Audio
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <div className="mx-auto">
+        <div className="mx-auto max-w-7xl px-6 py-24 sm:pt-28 lg:px-8 lg:py-36 -mt-8">
+          <div className="divide-y divide-gray-200 overflow-hidden rounded-lg bg-white shadow">
+            <div className="px-4 py-5 sm:p-6">
+              {!fileURL && (
+                <div className="bg-white px-6 py-24 sm:py-32 lg:px-8">
+                  <div className="mx-auto max-w-2xl text-center">
+                    <div className="text-center">
+                      <svg
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                        aria-hidden="true"
+                        className="mx-auto h-12 w-12 text-gray-400"
+                      >
+                        <path
+                          d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"
+                          strokeWidth={2}
+                          vectorEffect="non-scaling-stroke"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                      <h3 className="mt-2 text-sm font-semibold text-gray-900">
+                        No Recorded Audio Found
+                      </h3>
+                      <p className="mt-1 text-sm text-gray-500">
+                        Record the audio to edit and analyze.
+                      </p>
+                      <div className="mt-6">
+                        <button
+                          type="button"
+                          className="inline-flex items-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+                          onClick={handleRecord}
+                        >
+                          <PlusIcon
+                            aria-hidden="true"
+                            className="-ml-0.5 mr-1.5 h-5 w-5"
+                          />
+                          Record Audio
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
 
-      {fileURL &&(<section className="waveform-container">
-        <div ref={wavesurferRef} id="waveform" />
-        <div ref={timelineRef} id="wave-timeline" />
-        <div className="all-controls">
-          <div className="left-container">
-            
-            <button
-              title="play/pause"
-              className="controls"
-              onClick={handlePlayPause}
-            >
-              {playing ? (
-                <i className="material-icons">pause</i>
-              ) : (
-                <i className="material-icons">play_arrow</i>
+              {fileURL && (
+                <section className="waveform-container">
+                  <div ref={wavesurferRef} id="waveform" />
+                  <div ref={timelineRef} id="wave-timeline" />
+                  <div className="all-controls">
+                    <div className="left-container">
+                      <button
+                        title="play/pause"
+                        className="controls"
+                        onClick={handlePlayPause}
+                      >
+                        {playing ? (
+                          <i className="material-icons">pause</i>
+                        ) : (
+                          <i className="material-icons">play_arrow</i>
+                        )}
+                      </button>
+                      <button
+                        title="reload"
+                        className="controls"
+                        onClick={handleReload}
+                      >
+                        <i className="material-icons">replay</i>
+                      </button>
+                      <button className="trim" onClick={handleTrim}>
+                        <i
+                          style={{
+                            fontSize: "1.2em",
+                            color: "white",
+                          }}
+                          className="material-icons"
+                        >
+                          content_cut
+                        </i>
+                        Trim
+                      </button>
+                    </div>
+                    <div className="right-container">
+                      <div className="volume-slide-container">
+                        <i className="material-icons zoom-icon">
+                          remove_circle
+                        </i>
+                        <input
+                          type="range"
+                          min="1"
+                          max="1000"
+                          value={zoom}
+                          onChange={handleZoomSlider}
+                          class="slider zoom-slider"
+                        />
+                        <i className="material-icons zoom-icon">add_circle</i>
+                      </div>
+                      <div className="volume-slide-container">
+                        {volume > 0 ? (
+                          <i className="material-icons">volume_up</i>
+                        ) : (
+                          <i className="material-icons">volume_off</i>
+                        )}
+                        <input
+                          type="range"
+                          min="0"
+                          max="1"
+                          step="0.05"
+                          value={volume}
+                          onChange={handleVolumeSlider}
+                          className="slider volume-slider"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </section>
               )}
-            </button>
-            <button title="reload" className="controls" onClick={handleReload}>
-              <i className="material-icons">replay</i>
-            </button>
-            <button className="trim" onClick={handleTrim}>
-              <i
-                style={{
-                  fontSize: "1.2em",
-                  color: "white",
-                }}
-                className="material-icons"
-              >
-                content_cut
-              </i>
-              Trim
-            </button>
-          </div>
-          <div className="right-container">
-            <div className="volume-slide-container">
-              <i className="material-icons zoom-icon">remove_circle</i>
-              <input
-                type="range"
-                min="1"
-                max="1000"
-                value={zoom}
-                onChange={handleZoomSlider}
-                class="slider zoom-slider"
-              />
-              <i className="material-icons zoom-icon">add_circle</i>
             </div>
-            <div className="volume-slide-container">
-              {volume > 0 ? (
-                <i className="material-icons">volume_up</i>
-              ) : (
-                <i className="material-icons">volume_off</i>
-              )}
-              <input
-                type="range"
-                min="0"
-                max="1"
-                step="0.05"
-                value={volume}
-                onChange={handleVolumeSlider}
-                className="slider volume-slider"
-              />
+            <div className="px-4 py-4 sm:px-6">
+              {
+                <div className="mt-1 flex flex-col sm:mt-0 sm:flex-row sm:flex-wrap sm:space-x-6">
+                  <div className="mt-2 flex items-center text-sm text-gray-500">
+                    <button
+                      type="button"
+                      className="rounded bg-white px-2 py-1 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
+                    >
+                      Button 1
+                    </button>
+                  </div>
+                  <div className="mt-2 flex items-center text-sm text-gray-500">
+                    <button
+                      type="button"
+                      className="rounded bg-white px-2 py-1 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
+                    >
+                      Button 2
+                    </button>
+                  </div>
+                  <div className="mt-2 flex items-center text-sm text-gray-500">
+                    <button
+                      type="button"
+                      className="rounded bg-white px-2 py-1 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
+                    >
+                      Button 3
+                    </button>
+                  </div>
+                  <div className="mt-2 flex items-center text-sm text-gray-500">
+                    <button
+                      type="button"
+                      className="rounded bg-white px-2 py-1 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
+                    >
+                      Button 4
+                    </button>
+                  </div>
+                </div>
+              }
             </div>
           </div>
         </div>
-      </section>)}
+      </div>
     </>
   );
 };
