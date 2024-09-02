@@ -1,29 +1,38 @@
 import React, { useState, useEffect, useContext, useRef } from "react";
 import TimelinePlugin from "wavesurfer.js/dist/plugin/wavesurfer.timeline.min.js";
 import RegionsPlugin from "wavesurfer.js/dist/plugin/wavesurfer.regions.min.js";
-import { PlusIcon } from "@heroicons/react/20/solid";
+import {
+  PlusIcon,
+  SpeakerWaveIcon,
+  SpeakerXMarkIcon,
+} from "@heroicons/react/20/solid";
 import wavesurfer from "wavesurfer.js";
-import { FileContext } from "../../utils/fileContext";
+import { FileContext } from "../../utils/FileContent";
 import { useNavigate } from "react-router-dom/dist";
+import DownloadPopup from "../../utils/DownloadPopup";
+import { MdReplay, MdZoomIn, MdZoomOut } from "react-icons/md";
+import { FaPlay, FaPause } from "react-icons/fa";
+import {
+  convertBufferToWav,
+  convertBufferToAac,
+  convertBufferToMp3,
+} from "../../utils/Helpers";
 
 const AudioEditor = (url) => {
   const wavesurferRef = useRef(null);
   const timelineRef = useRef(null);
   const navigate = useNavigate();
 
-  // fetch file url from the context
   const { fileURL, setFileURL } = useContext(FileContext);
-  console.log("mintu", fileURL);
 
-  // crate an instance of the wavesurfer
   const [wavesurferObj, setWavesurferObj] = useState();
 
-  const [playing, setPlaying] = useState(true); // to keep track whether audio is currently playing or not
-  const [volume, setVolume] = useState(1); // to control volume level of the audio. 0-mute, 1-max
-  const [zoom, setZoom] = useState(1); // to control the zoom level of the waveform
-  const [duration, setDuration] = useState(0); // duration is used to set the default region of selection for trimming the audio
+  const [playing, setPlaying] = useState(true);
+  const [volume, setVolume] = useState(1);
+  const [zoom, setZoom] = useState(1);
+  const [duration, setDuration] = useState(0);
+  const [isVisible, setIsVisible] = useState(false);
 
-  // create the waveform inside the correct component
   useEffect(() => {
     if (wavesurferRef.current && !wavesurferObj) {
       setWavesurferObj(
@@ -31,10 +40,10 @@ const AudioEditor = (url) => {
           container: "#waveform",
           scrollParent: true,
           autoCenter: true,
-          cursorColor: "violet",
+          cursorColor: "yellow",
           loopSelection: true,
-          waveColor: "#211027",
-          progressColor: "#69207F",
+          waveColor: "#4F46E5",
+          progressColor: "#4F46E5",
           responsive: true,
           plugins: [
             TimelinePlugin.create({
@@ -47,7 +56,6 @@ const AudioEditor = (url) => {
     }
   }, [wavesurferRef, wavesurferObj]);
 
-  // once the file URL is ready, load the file to produce the waveform
   useEffect(() => {
     if (fileURL && wavesurferObj) {
       wavesurferObj.load(fileURL);
@@ -56,24 +64,20 @@ const AudioEditor = (url) => {
 
   useEffect(() => {
     if (wavesurferObj) {
-      // once the waveform is ready, play the audio
       wavesurferObj.on("ready", () => {
         wavesurferObj.play();
-        wavesurferObj.enableDragSelection({}); // to select the region to be trimmed
-        setDuration(Math.floor(wavesurferObj.getDuration())); // set the duration in local state
+        wavesurferObj.enableDragSelection({});
+        setDuration(Math.floor(wavesurferObj.getDuration()));
       });
 
-      // once audio starts playing, set the state variable to true
       wavesurferObj.on("play", () => {
         setPlaying(true);
       });
 
-      // once audio starts playing, set the state variable to false
       wavesurferObj.on("finish", () => {
         setPlaying(false);
       });
 
-      // if multiple regions are created, then remove all the previous regions so that only 1 is present at any given time
       wavesurferObj.on("region-updated", (region) => {
         const regions = region.wavesurfer.regions.list;
         const keys = Object.keys(regions);
@@ -84,27 +88,47 @@ const AudioEditor = (url) => {
     }
   }, [wavesurferObj]);
 
-  // set volume of the wavesurfer object, whenever volume variable in state is changed
   useEffect(() => {
     if (wavesurferObj) wavesurferObj.setVolume(volume);
   }, [volume, wavesurferObj]);
 
-  // set zoom level of the wavesurfer object, whenever the zoom variable in state is changed
   useEffect(() => {
     if (wavesurferObj) wavesurferObj.zoom(zoom);
   }, [zoom, wavesurferObj]);
 
-  // when the duration of the audio is available, set the length of the region depending on it, so as to not exceed the total lenght of the audio
   useEffect(() => {
     if (duration && wavesurferObj) {
-      // add a region with default length
-      wavesurferObj.addRegion({
-        start: Math.floor(duration / 2) - Math.floor(duration) / 5, // time in seconds
-        end: Math.floor(duration / 2), // time in seconds
-        color: "hsla(265, 100%, 86%, 0.4)", // color of the selected region, light hue of purple
-      });
+      if (Object.keys(wavesurferObj.regions.list).length === 0) {
+        wavesurferObj.addRegion({
+          id: "default-region",
+          start: Math.floor(duration / 2) - Math.floor(duration) / 5,
+          end: Math.floor(duration / 2),
+          color: "hsla(241, 100%, 80%, 0.4)",
+        });
+      }
     }
   }, [duration, wavesurferObj]);
+
+  const handleSplit = () => {
+    if (wavesurferObj) {
+      const regions = wavesurferObj.regions.list;
+      const defaultRegion = regions["default-region"];
+      const end = wavesurferObj.getDuration();
+
+      if (defaultRegion) {
+        defaultRegion.update({
+          start: wavesurferObj.getCurrentTime(),
+          end: end,
+        });
+
+        console.log(
+          `Updated region: Start=${wavesurferObj.getCurrentTime()}, End=${end}`
+        );
+      } else {
+        console.error("Default region not found.");
+      }
+    }
+  };
 
   const handlePlayPause = (e) => {
     wavesurferObj.playPause();
@@ -112,10 +136,9 @@ const AudioEditor = (url) => {
   };
 
   const handleReload = (e) => {
-    // stop will return the audio to 0s, then play it again
     wavesurferObj.stop();
     wavesurferObj.play();
-    setPlaying(true); // to toggle the play/pause button icon
+    setPlaying(true);
   };
 
   const handleVolumeSlider = (e) => {
@@ -138,53 +161,75 @@ const AudioEditor = (url) => {
         const originalBuffer = wavesurferObj.backend.buffer;
         const numChannels = originalBuffer.numberOfChannels;
         const sampleRate = originalBuffer.sampleRate;
-        const originalLength = originalBuffer.length;
 
-        // Calculate sample indices
         const startSample = Math.floor(start * sampleRate);
         const endSample = Math.floor(end * sampleRate);
 
-        const beforeRegionLength = startSample;
-        const afterRegionLength = originalLength - endSample;
+        const selectedRegionLength = endSample - startSample;
 
-        // Create a new buffer with the combined length (excluding the selected region)
         const newBuffer = wavesurferObj.backend.ac.createBuffer(
           numChannels,
-          beforeRegionLength + afterRegionLength,
+          selectedRegionLength,
           sampleRate
         );
 
-        // Process each channel separately
         for (let ch = 0; ch < numChannels; ch++) {
           const channelData = originalBuffer.getChannelData(ch);
 
-          // Create arrays for audio data before and after the selected region
-          const beforeRegionData = new Float32Array(beforeRegionLength);
-          const afterRegionData = new Float32Array(afterRegionLength);
+          const selectedRegionData = new Float32Array(selectedRegionLength);
+          selectedRegionData.set(channelData.slice(startSample, endSample));
 
-          // Handle cases where the selected region might be at the start or end
-          if (startSample > 0) {
-            beforeRegionData.set(channelData.slice(0, startSample));
-          }
-
-          if (endSample < originalLength) {
-            afterRegionData.set(channelData.slice(endSample));
-          }
-
-          // Combine the data and copy to the new buffer
-          const combinedData = new Float32Array(
-            beforeRegionLength + afterRegionLength
-          );
-          combinedData.set(beforeRegionData);
-          combinedData.set(afterRegionData, beforeRegionLength);
-
-          newBuffer.copyToChannel(combinedData, ch);
+          newBuffer.copyToChannel(selectedRegionData, ch);
         }
 
-        // Load the new buffer
         wavesurferObj.loadDecodedBuffer(newBuffer);
       }
     }
+  };
+  const handleDownload = (format) => {
+    if (!wavesurferObj) {
+      console.error("WaveSurfer instance is not available.");
+      return;
+    }
+
+    const buffer = wavesurferObj.backend.buffer;
+
+    if (buffer) {
+      let audioData;
+      let mimeType = "";
+      let extension = "";
+
+      if (format === "wav") {
+        audioData = convertBufferToWav(buffer);
+        mimeType = "audio/wav";
+        extension = "wav";
+      } else if (format === "mp3") {
+        audioData = convertBufferToMp3(buffer);
+        mimeType = "audio/mpeg";
+        extension = "mp3";
+      } else if (format === "aac") {
+        audioData = convertBufferToAac(buffer);
+        mimeType = "audio/aac";
+        extension = "aac";
+      } else {
+        console.error("Unsupported format");
+        return;
+      }
+
+      if (audioData) {
+        const blob = new Blob([audioData], { type: mimeType });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `audio.${extension}`;
+        link.click();
+        URL.revokeObjectURL(url);
+      }
+    }
+  };
+
+  const handlePopup = () => {
+    setIsVisible(true);
   };
 
   const handleRecord = () => {
@@ -196,164 +241,160 @@ const AudioEditor = (url) => {
       <div className="mx-auto">
         <div className="mx-auto max-w-7xl px-6 py-24 sm:pt-28 lg:px-8 lg:py-36 -mt-8">
           <div className="divide-y divide-gray-200 overflow-hidden rounded-lg bg-white shadow">
-            <div className="px-4 py-5 sm:p-6">
-              {!fileURL && (
-                <div className="bg-white px-6 py-24 sm:py-32 lg:px-8">
-                  <div className="mx-auto max-w-2xl text-center">
-                    <div className="text-center">
-                      <svg
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                        aria-hidden="true"
-                        className="mx-auto h-12 w-12 text-gray-400"
+            {!fileURL && (
+              <div className="bg-white px-6 py-24 sm:py-32 lg:px-8">
+                <div className="mx-auto max-w-2xl text-center">
+                  <div className="text-center">
+                    <svg
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
+                      className="mx-auto h-12 w-12 text-gray-400"
+                    >
+                      <path
+                        d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"
+                        strokeWidth={2}
+                        vectorEffect="non-scaling-stroke"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                    <h3 className="mt-2 text-sm font-semibold text-gray-900">
+                      No Recorded Audio Found
+                    </h3>
+                    <p className="mt-1 text-sm text-gray-500">
+                      Record the audio to edit and analyze.
+                    </p>
+                    <div className="mt-6">
+                      <button
+                        type="button"
+                        className="inline-flex items-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+                        onClick={handleRecord}
                       >
-                        <path
-                          d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"
-                          strokeWidth={2}
-                          vectorEffect="non-scaling-stroke"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
+                        <PlusIcon
+                          aria-hidden="true"
+                          className="-ml-0.5 mr-1.5 h-5 w-5"
                         />
-                      </svg>
-                      <h3 className="mt-2 text-sm font-semibold text-gray-900">
-                        No Recorded Audio Found
-                      </h3>
-                      <p className="mt-1 text-sm text-gray-500">
-                        Record the audio to edit and analyze.
-                      </p>
-                      <div className="mt-6">
-                        <button
-                          type="button"
-                          className="inline-flex items-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
-                          onClick={handleRecord}
-                        >
-                          <PlusIcon
-                            aria-hidden="true"
-                            className="-ml-0.5 mr-1.5 h-5 w-5"
-                          />
-                          Record Audio
-                        </button>
-                      </div>
+                        Record Audio
+                      </button>
                     </div>
                   </div>
                 </div>
-              )}
+              </div>
+            )}
+            {fileURL && (
+              <>
+                <div className="px-4 py-5 sm:p-6">
+                  {
+                    <section className="waveform-container">
+                      <div ref={wavesurferRef} id="waveform" />
+                      <div ref={timelineRef} id="wave-timeline" />
+                    </section>
+                  }
+                </div>
+                <div className="px-4 py-4 sm:px-6">
+                  {
+                    <>
+                      <div className="flex items-center justify-between p-0">
+                        <div className="flex space-x-6">
+                          <div className="mt-2 flex items-center text-sm text-gray-500">
+                            <button
+                              type="button"
+                              className="rounded bg-white px-2 py-1 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
+                              onClick={handleSplit}
+                            >
+                              Split
+                            </button>
+                          </div>
 
-              {fileURL && (
-                <section className="waveform-container">
-                  <div ref={wavesurferRef} id="waveform" />
-                  <div ref={timelineRef} id="wave-timeline" />
-                  <div className="all-controls">
-                    <div className="left-container">
-                      <button
-                        title="play/pause"
-                        className="controls"
-                        onClick={handlePlayPause}
-                      >
-                        {playing ? (
-                          <i className="material-icons">pause</i>
-                        ) : (
-                          <i className="material-icons">play_arrow</i>
-                        )}
-                      </button>
-                      <button
-                        title="reload"
-                        className="controls"
-                        onClick={handleReload}
-                      >
-                        <i className="material-icons">replay</i>
-                      </button>
-                      <button className="trim" onClick={handleTrim}>
-                        <i
-                          style={{
-                            fontSize: "1.2em",
-                            color: "white",
-                          }}
-                          className="material-icons"
-                        >
-                          content_cut
-                        </i>
-                        Trim
-                      </button>
-                    </div>
-                    <div className="right-container">
-                      <div className="volume-slide-container">
-                        <i className="material-icons zoom-icon">
-                          remove_circle
-                        </i>
-                        <input
-                          type="range"
-                          min="1"
-                          max="1000"
-                          value={zoom}
-                          onChange={handleZoomSlider}
-                          class="slider zoom-slider"
-                        />
-                        <i className="material-icons zoom-icon">add_circle</i>
+                          <div className="mt-2 flex items-center text-sm text-gray-500">
+                            <button
+                              type="button"
+                              className="rounded bg-white px-2 py-1 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
+                              onClick={handleTrim}
+                            >
+                              Trim
+                            </button>
+                          </div>
+                          <div className="mt-2 flex items-center text-sm text-gray-500">
+                            <button
+                              type="button"
+                              className="rounded bg-white px-2 py-1 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
+                              onClick={handlePopup}
+                            >
+                              Download
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center space-x-4">
+                          <button
+                            type="button"
+                            className="flex items-center justify-center p-2 rounded bg-transparent border-none text-gray-900 hover:bg-gray-100 focus:outline-none"
+                            onClick={handlePlayPause}
+                          >
+                            {playing ? (
+                              <FaPause className="text-xl" />
+                            ) : (
+                              <FaPlay className="text-xl" />
+                            )}
+                          </button>
+
+                          <button
+                            title="Reload"
+                            className="flex items-center justify-center p-2 bg-transparent border-none text-gray-700 hover:bg-gray-100 focus:outline-none"
+                            onClick={handleReload}
+                          >
+                            <MdReplay className="text-xl" />
+                          </button>
+                          <div className="flex items-center space-x-2">
+                            {volume > 0 ? (
+                              <SpeakerWaveIcon className="text-gray-700 w-6 h-6" />
+                            ) : (
+                              <SpeakerXMarkIcon className="text-gray-700 w-6 h-6" />
+                            )}
+                            <input
+                              type="range"
+                              min="0"
+                              max="1"
+                              step="0.05"
+                              value={volume}
+                              onChange={handleVolumeSlider}
+                              className="slider volume-slider w-24 h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer"
+                            />
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <MdZoomOut className="text-gray-700 text-xl" />{" "}
+                            {/* Zoom out icon */}
+                            <input
+                              type="range"
+                              min="1"
+                              max="1000"
+                              value={zoom}
+                              onChange={handleZoomSlider}
+                              className="slider zoom-slider w-24 h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer"
+                            />
+                            <MdZoomIn className="text-gray-700 text-xl" />{" "}
+                            {/* Zoom in icon */}
+                          </div>
+                        </div>
                       </div>
-                      <div className="volume-slide-container">
-                        {volume > 0 ? (
-                          <i className="material-icons">volume_up</i>
-                        ) : (
-                          <i className="material-icons">volume_off</i>
-                        )}
-                        <input
-                          type="range"
-                          min="0"
-                          max="1"
-                          step="0.05"
-                          value={volume}
-                          onChange={handleVolumeSlider}
-                          className="slider volume-slider"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </section>
-              )}
-            </div>
-            <div className="px-4 py-4 sm:px-6">
-              {
-                <div className="mt-1 flex flex-col sm:mt-0 sm:flex-row sm:flex-wrap sm:space-x-6">
-                  <div className="mt-2 flex items-center text-sm text-gray-500">
-                    <button
-                      type="button"
-                      className="rounded bg-white px-2 py-1 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
-                    >
-                      Button 1
-                    </button>
-                  </div>
-                  <div className="mt-2 flex items-center text-sm text-gray-500">
-                    <button
-                      type="button"
-                      className="rounded bg-white px-2 py-1 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
-                    >
-                      Button 2
-                    </button>
-                  </div>
-                  <div className="mt-2 flex items-center text-sm text-gray-500">
-                    <button
-                      type="button"
-                      className="rounded bg-white px-2 py-1 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
-                    >
-                      Button 3
-                    </button>
-                  </div>
-                  <div className="mt-2 flex items-center text-sm text-gray-500">
-                    <button
-                      type="button"
-                      className="rounded bg-white px-2 py-1 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
-                    >
-                      Button 4
-                    </button>
-                  </div>
+                    </>
+                  }
                 </div>
-              }
-            </div>
+              </>
+            )}
           </div>
         </div>
       </div>
+
+      {isVisible && (
+        <DownloadPopup
+          setIsVisible={setIsVisible}
+          handleDownload={handleDownload}
+        />
+      )}
     </>
   );
 };
