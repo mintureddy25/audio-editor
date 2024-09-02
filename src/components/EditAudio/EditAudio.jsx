@@ -101,8 +101,8 @@ const AudioEditor = (url) => {
       if (Object.keys(wavesurferObj.regions.list).length === 0) {
         wavesurferObj.addRegion({
           id: "default-region",
-          start: Math.floor(duration / 2) - Math.floor(duration) / 5,
-          end: Math.floor(duration / 2),
+          start: Math.floor(wavesurferObj.getDuration() / 2) - Math.floor(wavesurferObj.getDuration()) / 5,
+          end: Math.floor(wavesurferObj.getDuration() / 2),
           color: "hsla(241, 100%, 80%, 0.4)",
         });
       }
@@ -186,6 +186,51 @@ const AudioEditor = (url) => {
       }
     }
   };
+
+  const handleRemoveRegion = (e) => {
+	if (wavesurferObj) {
+	  const region =
+		wavesurferObj.regions.list[Object.keys(wavesurferObj.regions.list)[0]];
+  
+	  if (region) {
+		const start = region.start;
+		const end = region.end;
+  
+		const originalBuffer = wavesurferObj.backend.buffer;
+		const numChannels = originalBuffer.numberOfChannels;
+		const sampleRate = originalBuffer.sampleRate;
+  
+		const startSample = Math.floor(start * sampleRate);
+		const endSample = Math.floor(end * sampleRate);
+  
+		const totalLength = originalBuffer.length;
+		const beforeRegionLength = startSample;
+		const afterRegionLength = totalLength - endSample;
+		
+		const newBuffer = wavesurferObj.backend.ac.createBuffer(
+		  numChannels,
+		  beforeRegionLength + afterRegionLength,
+		  sampleRate
+		);
+  
+		for (let ch = 0; ch < numChannels; ch++) {
+		  const channelData = originalBuffer.getChannelData(ch);
+  
+		  const beforeRegionData = channelData.slice(0, startSample);
+		  const afterRegionData = channelData.slice(endSample);
+  
+		  const combinedData = new Float32Array(beforeRegionLength + afterRegionLength);
+		  combinedData.set(beforeRegionData);
+		  combinedData.set(afterRegionData, beforeRegionLength);
+  
+		  newBuffer.copyToChannel(combinedData, ch);
+		}
+  
+		wavesurferObj.loadDecodedBuffer(newBuffer);
+	  }
+	}
+  };
+  
   const handleDownload = (format) => {
     if (!wavesurferObj) {
       console.error("WaveSurfer instance is not available.");
@@ -315,6 +360,15 @@ const AudioEditor = (url) => {
                               onClick={handleTrim}
                             >
                               Trim
+                            </button>
+                          </div>
+						  <div className="mt-2 flex items-center text-sm text-gray-500">
+                            <button
+                              type="button"
+                              className="rounded bg-white px-2 py-1 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
+                              onClick={handleRemoveRegion}
+                            >
+                              Delete
                             </button>
                           </div>
                           <div className="mt-2 flex items-center text-sm text-gray-500">
